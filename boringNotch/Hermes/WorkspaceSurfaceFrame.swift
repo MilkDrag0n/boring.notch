@@ -55,9 +55,9 @@ struct WorkspaceSurfaceFrame<WindowBridge: View>: AnimatableModifier {
         Group {
             if enabled {
                 content
-                    // Keep content layout stable while the shell reveals it.
-                    .frame(width: geometry.contentSize.width, height: geometry.contentSize.height, alignment: .top)
-                    .animation(nil, value: geometry.contentSize)
+                    // Avoid rewrapping content at every width sampled by the shell animation.
+                    .frame(width: geometry.contentSize.width, alignment: .top)
+                    .animation(nil, value: geometry.contentSize.width)
                     .frame(width: geometry.visibleSize.width, height: geometry.visibleSize.height, alignment: .top)
                     .clipShape(NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius))
                     .background {
