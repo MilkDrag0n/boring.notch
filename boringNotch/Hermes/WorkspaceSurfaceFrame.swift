@@ -25,7 +25,7 @@ struct WorkspaceSurfaceGeometry: Equatable {
     var contentOrigin: CGPoint { CGPoint(x: (visibleSize.width - contentSize.width) / 2, y: 0) }
 }
 
-struct WorkspaceSurfaceFrame<WindowBridge: View>: AnimatableModifier {
+struct WorkspaceSurfaceFrame<WindowBridge: View>: ViewModifier {
     var presentationSize: CGSize
     let contentSize: CGSize
     let enabled: Bool
@@ -36,17 +36,6 @@ struct WorkspaceSurfaceFrame<WindowBridge: View>: AnimatableModifier {
     var bottomCornerRadius: CGFloat = 14
     var shadowOpacity: CGFloat = 0
     @ViewBuilder var windowBridge: (CGSize) -> WindowBridge
-
-    var animatableData: AnimatablePair<AnimatablePair<CGFloat, CGFloat>, AnimatablePair<AnimatablePair<CGFloat, CGFloat>, CGFloat>> {
-        get { .init(.init(presentationSize.width, presentationSize.height),
-                    .init(.init(topCornerRadius, bottomCornerRadius), shadowOpacity)) }
-        set {
-            presentationSize = CGSize(width: newValue.first.first, height: newValue.first.second)
-            topCornerRadius = newValue.second.first.first
-            bottomCornerRadius = newValue.second.first.second
-            shadowOpacity = newValue.second.second
-        }
-    }
 
     func body(content: Content) -> some View {
         let geometry = WorkspaceSurfaceGeometry(
@@ -59,6 +48,7 @@ struct WorkspaceSurfaceFrame<WindowBridge: View>: AnimatableModifier {
                     .frame(width: geometry.contentSize.width, alignment: .top)
                     .animation(nil, value: geometry.contentSize.width)
                     .frame(width: geometry.visibleSize.width, height: geometry.visibleSize.height, alignment: .top)
+                    .geometryGroup()
                     .clipShape(NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius))
                     .background {
                         NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius)
