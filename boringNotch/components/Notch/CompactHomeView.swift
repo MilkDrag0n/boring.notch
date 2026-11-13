@@ -143,7 +143,7 @@ struct CompactHomeView: View {
     // MARK: - Progress
 
     private var progressRow: some View {
-        MusicPlaybackTimeline(playbackRate: musicManager.playbackRate) { date in
+        MusicPlaybackTimeline(playbackRate: musicManager.playbackRate, isPlaying: musicManager.isPlaying) { date in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
@@ -161,7 +161,6 @@ struct CompactHomeView: View {
             .padding(.top, 5)
             .frame(height: 36)
         }
-        .onAppear { sliderValue = musicManager.elapsedTime }
     }
 
     // MARK: - Transport

@@ -198,7 +198,7 @@ struct MusicControlsView: View {
     }
 
     private var musicSlider: some View {
-        MusicPlaybackTimeline(playbackRate: musicManager.playbackRate) { date in
+        MusicPlaybackTimeline(playbackRate: musicManager.playbackRate, isPlaying: musicManager.isPlaying) { date in
             MusicSliderView(
                 sliderValue: $sliderValue,
                 duration: $musicManager.songDuration,
@@ -335,11 +335,16 @@ struct MusicControlSlotButton: View {
 
 struct MusicPlaybackTimeline<Content: View>: View {
     let playbackRate: Double
+    let isPlaying: Bool
     @ViewBuilder let content: (Date) -> Content
 
     var body: some View {
-        TimelineView(.animation(minimumInterval: playbackRate > 0 ? musicPlaybackTickInterval : nil)) { context in
+        TimelineView(.animation(minimumInterval: musicPlaybackTickInterval, paused: !(isPlaying && playbackRate > 0))) { context in
             content(context.date)
+        }
+        .onChange(of: isPlaying && playbackRate > 0, initial: true) { _, advancing in
+            InteractionDiagnostics.record("animation", "playback-schedule", ["enabled": String(advancing),
+                "detail": String(playbackRate)])
         }
     }
 }
@@ -634,10 +639,14 @@ struct MusicSliderView: View {
             .foregroundColor(timeLabelColor)
             .font(.caption)
         }
-        .onChange(of: currentDate) {
-           guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
-            sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: currentDate)
-        }
+        .onAppear { updateProgress(at: Date()) }
+        .onChange(of: currentDate) { updateProgress(at: currentDate) }
+        .onChange(of: timestampDate) { updateProgress(at: Date()) }
+    }
+
+    private func updateProgress(at date: Date) {
+        guard !dragging, timestampDate.timeIntervalSince(lastDragged) > -1 else { return }
+        sliderValue = MusicManager.shared.estimatedPlaybackPosition(at: date)
     }
 
     private var sliderCore: some View {
