@@ -23,7 +23,7 @@ def main():
     root = Path(__file__).resolve().parents[2]
     evidence = root / 'build/ordered-window-checks'
     evidence.mkdir(parents=True, exist_ok=True)
-    sources = [root / 'boringNotch/Hermes/NotchHostingView.swift', root / '.github/scripts/OrderedWindowLayoutChecks.swift']
+    sources = [root / 'Shared/InteractionDiagnostics.swift', root / 'boringNotch/Hermes/NotchHostingView.swift', root / '.github/scripts/OrderedWindowLayoutChecks.swift']
     with tempfile.TemporaryDirectory(prefix='boring-ordered-layout-') as temporary:
         executable = Path(temporary) / 'OrderedWindowLayoutChecks'
         subprocess.run(['xcrun', '--sdk', 'macosx', 'swiftc', '-parse-as-library', '-swift-version', '5',

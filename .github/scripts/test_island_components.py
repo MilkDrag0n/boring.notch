@@ -30,7 +30,7 @@ def main():
                         "-target", "arm64-apple-macos27.0", "-emit-library", "-emit-module",
                         "-module-name", "Defaults", str(root / ".github/scripts/IslandDefaultsStub.swift"),
                         "-o", str(temporary / "libDefaults.dylib")], cwd=temporary, check=True, timeout=120)
-        shared = [root / "boringNotch/Hermes/NotchHostingView.swift",
+        shared = [root / "Shared/InteractionDiagnostics.swift", root / "boringNotch/Hermes/NotchHostingView.swift",
                   root / "boringNotch/Hermes/WorkspaceSurfaceFrame.swift",
                   root / ".github/scripts/IslandComponentsDependencies.swift",
                   root / ".github/scripts/IslandComponentsChecks.swift"]
