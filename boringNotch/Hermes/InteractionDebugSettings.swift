@@ -61,7 +61,7 @@ struct InteractionDebugSettings: View {
     var body: some View {
         Section("交互调试") {
             Toggle("记录详细调试日志", isOn: Binding(get: { debug.enabled }, set: { debug.setEnabled($0) }))
-            Text("记录焦点、点击和粘贴流程，不记录输入正文、剪贴板内容或密钥。")
+            Text("记录动画耗时、显示回调间隔、焦点、点击和粘贴流程，不记录输入正文、剪贴板内容或密钥。")
                 .font(.caption).foregroundStyle(.secondary)
             HStack {
                 Button("导出日志…") { debug.export() }

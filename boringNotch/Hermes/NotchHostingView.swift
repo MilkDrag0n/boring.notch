@@ -1,4 +1,5 @@
 import AppKit
+import QuartzCore
 import SwiftUI
 
 /// Marks only the visible shell or an intentional native drag/chin target as interactive.
@@ -93,6 +94,7 @@ func makeNotchHostingView<Content: View>(rootView: Content) -> NotchHostingConta
     private var settled = false
     private weak var window: NSWindow?
     private var pending: DispatchWorkItem?
+    private var animationTrace: IslandAnimationTrace?
 
     func prepareInitial(_ target: CGSize) {
         // transaction(value:) only mutates a changed value. A cold closed launch has no
@@ -104,6 +106,11 @@ func makeNotchHostingView<Content: View>(rootView: Content) -> NotchHostingConta
     func begin(_ target: CGSize) -> UInt {
         guard target.width.isFinite, target.height.isFinite, target.width > 0, target.height > 0 else { return ticket }
         if self.target != target {
+            animationTrace?.finish(reason: "interrupted")
+            animationTrace = nil
+            if InteractionDiagnostics.enabled, let window {
+                animationTrace = IslandAnimationTrace(window: window, target: target)
+            }
             self.target = target
             ticket &+= 1
             settled = false
@@ -113,6 +120,8 @@ func makeNotchHostingView<Content: View>(rootView: Content) -> NotchHostingConta
     }
     func complete(_ token: UInt) {
         guard token == ticket, target != nil else { return }
+        animationTrace?.finish(reason: "completed")
+        animationTrace = nil
         settled = true
         schedule()
     }
@@ -125,6 +134,8 @@ func makeNotchHostingView<Content: View>(rootView: Content) -> NotchHostingConta
     }
     func detach(_ window: NSWindow?) {
         guard self.window === window else { return }
+        animationTrace?.finish(reason: "detached")
+        animationTrace = nil
         ticket &+= 1
         pending?.cancel(); pending = nil
         self.window = nil
@@ -146,11 +157,76 @@ func makeNotchHostingView<Content: View>(rootView: Content) -> NotchHostingConta
             let current = window.frame
             if abs(current.minX - frame.minX) > 0.5 || abs(current.minY - frame.minY) > 0.5
                 || abs(current.width - frame.width) > 0.5 || abs(current.height - frame.height) > 0.5 {
+                let started = InteractionDiagnostics.enabled ? CACurrentMediaTime() : nil
                 window.setFrame(frame, display: false)
+                if let started {
+                    self.animationTrace?.recordFrameWrite()
+                    InteractionDiagnostics.record("animation", "native-frame", ["window": String(window.windowNumber),
+                        "reason": self.settled ? "fitted" : "prepared",
+                        "width": String(describing: frame.width), "height": String(describing: frame.height),
+                        "durationMs": String((CACurrentMediaTime() - started) * 1_000)])
+                }
             }
         }
         pending = work
         DispatchQueue.main.async(execute: work)
+    }
+}
+
+/// Display callbacks measure main-thread scheduling during the spring, not GPU presentation.
+/// Aggregate in memory and stop at completion; the existing bounded writer handles disk I/O.
+@MainActor private final class IslandAnimationTrace: NSObject {
+    private let windowNumber: Int
+    private let started = CACurrentMediaTime()
+    private var displayLink: CADisplayLink?
+    private var previousCallback: CFTimeInterval?
+    private var callbacks = 0
+    private var lateCallbacks = 0
+    private var maxGap: CFTimeInterval = 0
+    private var frameWrites = 0
+
+    init(window: NSWindow, target: CGSize) {
+        windowNumber = window.windowNumber
+        super.init()
+        InteractionDiagnostics.record("animation", "started", ["window": String(windowNumber),
+            "width": String(describing: target.width), "height": String(describing: target.height)])
+        let link = window.displayLink(target: self, selector: #selector(sample(_:)))
+        displayLink = link
+        link.add(to: .main, forMode: .common)
+    }
+
+    @objc private func sample(_ link: CADisplayLink) {
+        guard InteractionDiagnostics.enabled else { finish(reason: "disabled"); return }
+        let now = CACurrentMediaTime()
+        let gap = now - (previousCallback ?? started)
+        let budget = link.targetTimestamp - link.timestamp
+        callbacks += 1
+        maxGap = max(maxGap, gap)
+        if budget > 0, gap > budget * 1.5 {
+            lateCallbacks += 1
+            if lateCallbacks <= 8 {
+                InteractionDiagnostics.record("animation", "late-callback", ["window": String(windowNumber),
+                    "durationMs": String(gap * 1_000), "budgetMs": String(budget * 1_000),
+                    "elapsedMs": String((now - started) * 1_000)])
+            }
+        }
+        previousCallback = now
+        if now - started > 3 { finish(reason: "timeout") }
+    }
+
+    func recordFrameWrite() {
+        guard displayLink != nil else { return }
+        frameWrites += 1
+    }
+
+    func finish(reason: String) {
+        guard let link = displayLink else { return }
+        link.invalidate()
+        displayLink = nil
+        InteractionDiagnostics.record("animation", "finished", ["window": String(windowNumber),
+            "reason": reason, "durationMs": String((CACurrentMediaTime() - started) * 1_000),
+            "callbacks": String(callbacks), "lateCallbacks": String(lateCallbacks),
+            "maxGapMs": String(maxGap * 1_000), "frameWrites": String(frameWrites)])
     }
 }
 

@@ -41,7 +41,8 @@ final class InteractionDiagnosticWriter: @unchecked Sendable {
         "hasWindow", "hasElement", "owners", "screen", "mouseOwner", "keyboardSession",
         "key", "command", "composing", "repeating", "event", "eventNumber", "rowHit", "consumed",
         "selected", "index", "count", "busy", "pasting", "changeCount", "items", "bytes",
-        "width", "height", "x", "y", "version", "build", "os", "errorDomain", "errorCode", "detail"
+        "width", "height", "x", "y", "version", "build", "os", "errorDomain", "errorCode", "detail",
+        "durationMs", "callbacks", "lateCallbacks", "maxGapMs", "budgetMs", "elapsedMs", "frameWrites"
     ]
     init(directory: URL, limit: Int = 2 * 1_024 * 1_024) {
         self.directory = directory

@@ -343,7 +343,7 @@ struct ContentView: View {
                     }
                     .onTapGesture {
                         if vm.notchState == .closed && !shouldDisplayNowPlayingFallbackNotice {
-                            doOpen()
+                            doOpen(source: "tap")
                         }
                     }
                     .conditionalModifier(Defaults[.enableGestures] && !shouldDisplayNowPlayingFallbackNotice) { view in
@@ -433,6 +433,8 @@ struct ContentView: View {
         .onChange(of: hermesWideWidth) { updateIslandSize() }
         .onChange(of: hermes.isWide) { updateIslandSize() }
         .onChange(of: vm.notchState) { _, state in
+            InteractionDiagnostics.record("animation", "state", ["current": String(describing: state),
+                "detail": String(describing: coordinator.currentView)])
             syncClipboardVisibility()
             updateIslandSize()
         }
@@ -941,7 +943,9 @@ struct ContentView: View {
 
 extension ContentView {
     @discardableResult
-    private func doOpen(tab: NotchViews? = nil) -> Bool {
+    private func doOpen(tab: NotchViews? = nil, source: String = "interaction") -> Bool {
+        InteractionDiagnostics.record("animation", "open-request", ["cause": source,
+            "current": String(describing: vm.notchState), "detail": String(describing: coordinator.currentView)])
         var didOpen = false
         withAnimation(animationSpring) {
             didOpen = vm.open(tab: tab)
@@ -975,6 +979,8 @@ extension ContentView {
     }
 
     private func handleHover(_ hovering: Bool) {
+        InteractionDiagnostics.record("animation", "hover", ["current": String(hovering),
+            "detail": String(describing: vm.notchState)])
         pointerInsideSurface = hovering
         clipboardPresentation.pointerChanged(hovering, on: vm.screenUUID)
         if coordinator.firstLaunch { return }
@@ -1014,7 +1020,7 @@ extension ContentView {
                           !self.shouldDisplayNowPlayingFallbackNotice,
                           !self.coordinator.shouldShowSneakPeek(on: self.vm.screenUUID) else { return }
 
-                    self.doOpen()
+                    self.doOpen(source: "hover")
                 }
             }
         } else {
