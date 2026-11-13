@@ -43,11 +43,9 @@ struct WorkspaceSurfaceFrame<WindowBridge: View>: ViewModifier {
             contentSize: contentSize, shadowPadding: shadowPadding, minimumCanvasSize: windowEnvelopeSize)
         Group {
             if enabled {
-                content
-                    // Avoid rewrapping content at every width sampled by the shell animation.
-                    .frame(width: geometry.contentSize.width, alignment: .top)
-                    .animation(nil, value: geometry.contentSize.width)
-                    .frame(width: geometry.visibleSize.width, height: geometry.visibleSize.height, alignment: .top)
+                WorkspaceSurfaceLayout(size: geometry.visibleSize, contentWidth: geometry.contentSize.width) {
+                    content.animation(nil, value: geometry.contentSize.width)
+                }
                     .geometryGroup()
                     .clipShape(NotchShape(topCornerRadius: topCornerRadius, bottomCornerRadius: bottomCornerRadius))
                     .background {
@@ -62,6 +60,27 @@ struct WorkspaceSurfaceFrame<WindowBridge: View>: ViewModifier {
         // The representable keeps its identity. Production supplies the same prepared viewport
         // for every tab and closed state; no timed canvas release or second window animation.
         .background { windowBridge(enabled ? geometry.canvasSize : nativeWindowSize) }
+    }
+}
+
+/// Interpolate layout proposals without rebuilding the modifier's content every frame.
+/// Width stays at its destination while height follows the shell to keep footers visible.
+private struct WorkspaceSurfaceLayout: Layout {
+    var size: CGSize
+    let contentWidth: CGFloat
+
+    var animatableData: AnimatablePair<CGFloat, CGFloat> {
+        get { .init(size.width, size.height) }
+        set { size = CGSize(width: newValue.first, height: newValue.second) }
+    }
+
+    func sizeThatFits(proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) -> CGSize {
+        size
+    }
+
+    func placeSubviews(in bounds: CGRect, proposal: ProposedViewSize, subviews: Subviews, cache: inout ()) {
+        subviews.first?.place(at: CGPoint(x: bounds.midX, y: bounds.minY), anchor: .top,
+            proposal: ProposedViewSize(width: contentWidth, height: bounds.height))
     }
 }
 
